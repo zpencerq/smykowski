@@ -40,9 +40,6 @@ func SetupProxy(proxy *goproxy.ProxyHttpServer) {
 		}
 
 		log.Printf("Handled connect from ip - %s - for host %s", ip, host)
-		if err != nil {
-			log.Printf("Error creating URL for host %s", host)
-		}
 
 		if wm.CheckTlsHost(ctx.Req.URL.String()) {
 			// don't tear down the SSL session
