@@ -122,12 +122,10 @@ func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 
 func (wm *WhitelistManager) load() error {
 	tmp, err := os.Open(wm.filename)
-	if os.IsNotExist(err) {
-		tmp, err = os.Create(wm.filename)
-	}
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		err := tmp.Close()
 		if err != nil {
