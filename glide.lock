@@ -1,0 +1,8 @@
+hash: 40de77b3df8d22dfd373c5a38af9af507baa2dd21d45ca275116e6d846f1d54d
+updated: 2016-02-21T20:40:12.501004688Z
+imports:
+- name: github.com/inconshreveable/go-vhost
+  version: 8cbc5089df5ba3e44644d39e8d1ec375d6d842f9
+- name: github.com/zpencerq/goproxy
+  version: 4ccd60b5119b4472b818e6d74d965e799ca5f312
+devImports: []

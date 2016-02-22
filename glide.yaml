@@ -1,0 +1,4 @@
+package: smykowski
+import:
+  - package: github.com/zpencerq/goproxy
+  - package: github.com/inconshreveable/go-vhost
