@@ -109,7 +109,7 @@ func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 		buf.WriteString(fmt.Sprint("<html><body>Requested destination not in whitelist</body></html>"))
 
 		return nil, &http.Response{
-			StatusCode:    400,
+			StatusCode:    403,
 			ProtoMajor:    1,
 			ProtoMinor:    1,
 			Request:       ctx.Req,
