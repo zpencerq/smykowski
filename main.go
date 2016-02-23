@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"log"
 	"net"
@@ -19,9 +20,12 @@ var (
 	http_addr  *string
 	https_addr *string
 	host_file  *string
+	cert_file  *string
+	key_file   *string
 	err        error
 
 	proxy *goproxy.ProxyHttpServer
+	cert  tls.Certificate
 	wm    *WhitelistManager
 )
 
@@ -30,11 +34,20 @@ func init() {
 	http_addr = flag.String("httpaddr", ":3129", "proxy http listen address")
 	https_addr = flag.String("httpsaddr", ":3128", "proxy https listen address")
 	host_file = flag.String("hostfile", "whitelist.lsv", "line separated host regex whitelist")
+	cert_file = flag.String("certfile", "ca.crt", "CA certificate")
+	key_file = flag.String("keyfile", "ca.key", "CA key")
 	flag.Parse()
 
 	wm, err = NewWhitelistManager(*host_file)
 	if err != nil {
 		panic(err)
+	}
+
+	cert, err = tls.LoadX509KeyPair(*cert_file, *key_file)
+	if err != nil {
+		log.Printf("Unable to load certificate - %v", err)
+		log.Printf("Using default goproxy certificate")
+		cert = goproxy.GoproxyCa
 	}
 
 	sigc := make(chan os.Signal, 1)
@@ -52,7 +65,7 @@ func init() {
 }
 
 func main() {
-	SetupProxy(proxy)
+	SetupProxy(proxy, cert)
 
 	go func() {
 		log.Fatalln(http.ListenAndServe(*http_addr, proxy))
@@ -78,13 +91,9 @@ func startHttpsVhost() {
 			if err != nil {
 				log.Printf("Error accepting new connection - %v", err)
 			}
-			if tlsConn.Host() == "" {
-				log.Printf("Cannot support non-SNI enabled clients")
-				c.Close()
-				return
-			}
 
-			if !wm.CheckTlsHost(tlsConn.Host()) {
+			host := tlsConn.Host()
+			if !wm.CheckTlsHost(host) && host != "" { // don't filter non-SNI clients here
 				log.Printf("Denied %v before CONNECT", tlsConn.Host())
 				c.Close()
 				return
@@ -94,10 +103,10 @@ func startHttpsVhost() {
 				RemoteAddr: c.RemoteAddr().String(),
 				Method:     "CONNECT",
 				URL: &url.URL{
-					Opaque: tlsConn.Host(),
-					Host:   net.JoinHostPort(tlsConn.Host(), "443"),
+					Opaque: host,
+					Host:   host,
 				},
-				Host:   tlsConn.Host(),
+				Host:   host,
 				Header: make(http.Header),
 			}
 			resp := DumbResponseWriter{tlsConn}

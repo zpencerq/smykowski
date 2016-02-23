@@ -99,11 +99,16 @@ func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 			panic(fmt.Sprintf("userip: %q is not IP", ip))
 		}
 
-		if ok := wm.Check(req.URL); ok {
-			log.Printf("IP %s visited - %v", ip, req.URL)
+		if req.URL.Host == "" { // this is a mitm'd request
+			req.URL.Host = req.Host
+		}
+		host := req.URL.String()
+
+		if ok := wm.CheckString(host); ok {
+			log.Printf("IP %s visited - %v", ip, host)
 			return req, nil
 		}
-		log.Printf("IP %s was blocked visiting - %v", ip, req.URL)
+		log.Printf("IP %s was blocked visiting - %v", ip, host)
 
 		buf := bytes.Buffer{}
 		buf.WriteString(fmt.Sprint("<html><body>Requested destination not in whitelist</body></html>"))

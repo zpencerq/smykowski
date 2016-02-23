@@ -16,11 +16,16 @@ it.
 
 #### SSL
 
-It doesn’t do MITM, instead it acts like a TLS vhost
-to utilize SNI to get the `Host` from the client. Then,
-it annotates the request with a `CONNECT` and hands
+If the client supports `SNI`, the proxy acts like a TLS
+vhost to utilize SNI to get the `Host` from the client.
+Then, it annotates the request with a `CONNECT` and hands
 it off to `goproxy` (after checking the Host to make
 sure it fits in the whitelist).
+
+If the client does not support `SNI`, then it
+man-in-the-middles the connection with a provided cert
+to get the `Host` from the request, then continues as
+described previously.
 
 #### Whitelist
 
@@ -32,12 +37,16 @@ for the host whitelist for matching against
 ```
 # smykowski -h
 Usage of smykowski:
+  -certfile string
+        CA certificate (default "ca.crt")
   -hostfile string
         line separated host regex whitelist (default "whitelist.lsv")
   -httpaddr string
         proxy http listen address (default ":3129")
   -httpsaddr string
         proxy https listen address (default ":3128")
+  -keyfile string
+        CA key (default "ca.key")
   -v    should every proxy request be logged to stdout
 ```
 
@@ -60,5 +69,5 @@ kill -s SIGCONT smykowski
 - Whitelist cache isn't LRU so it may fill up memory
   (though it's only based on `Host` hits, so probably not
   an issue)
-- Does not support non-SNI (old) clients
+- Requires that non-SNI clients use a custom CA
 

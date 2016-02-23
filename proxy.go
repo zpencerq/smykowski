@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
@@ -11,7 +12,7 @@ import (
 	"github.com/zpencerq/goproxy"
 )
 
-func SetupProxy(proxy *goproxy.ProxyHttpServer) {
+func SetupProxy(proxy *goproxy.ProxyHttpServer, cert tls.Certificate) {
 	proxy.Verbose = *verbose
 	if proxy.Verbose {
 		log.Printf("Server starting up! - configured to listen on http interface %s and https interface %s", *http_addr, *https_addr)
@@ -39,15 +40,20 @@ func SetupProxy(proxy *goproxy.ProxyHttpServer) {
 			panic(fmt.Sprintf("userip: %q is not IP", ip))
 		}
 
-		log.Printf("Handled connect from ip - %s - for host %s", ip, host)
+		if host == "" { // SNI failed and no host was found
+			log.Printf("non-SNI request from ip - %s", ip)
+			return &goproxy.ConnectAction{
+				Action:    goproxy.ConnectMitm,
+				TLSConfig: goproxy.TLSConfigFromCA(&cert),
+			}, "*:443"
+		}
+		log.Printf("CONNECT from ip - %s - for host %s", ip, host)
 
 		if wm.CheckTlsHost(ctx.Req.URL.String()) {
 			// don't tear down the SSL session
-			return &goproxy.ConnectAction{
-				Action: goproxy.ConnectAccept,
-			}, host
+			return goproxy.OkConnect, host + ":443"
 		} else {
-			return goproxy.RejectConnect, host
+			return goproxy.RejectConnect, host + ":443"
 		}
 	})
 }
