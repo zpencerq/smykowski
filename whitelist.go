@@ -68,8 +68,12 @@ func (wm *WhitelistManager) Check(URL *url.URL) bool {
 	return wm.CheckString(URL.String())
 }
 
+func (wm *WhitelistManager) CheckHttpHost(host string) bool {
+	return wm.CheckString("http://" + host)
+}
+
 func (wm *WhitelistManager) CheckTlsHost(host string) bool {
-	return wm.CheckString("https://" + host + "/")
+	return wm.CheckString("https://" + host)
 }
 
 func (wm *WhitelistManager) CheckString(str string) bool {
@@ -104,10 +108,12 @@ func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 		if req.URL.Host == "" { // this is a mitm'd request
 			req.URL.Host = req.Host
 		}
-		host := req.URL.String()
+		host := req.URL.Host
 
-		if ok := wm.CheckString(host); ok {
-			log.Printf("IP %s visited - %v", ip, host)
+		if ok := wm.CheckHttpHost(host); ok {
+			if wm.Verbose {
+				log.Printf("IP %s visited - %v", ip, host)
+			}
 			return req, nil
 		}
 		log.Printf("IP %s was blocked visiting - %v", ip, host)
