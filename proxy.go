@@ -41,13 +41,17 @@ func SetupProxy(proxy *goproxy.ProxyHttpServer, cert tls.Certificate) {
 		}
 
 		if host == "" { // SNI failed and no host was found
-			log.Printf("non-SNI request from ip - %s", ip)
+			if proxy.Verbose {
+				log.Printf("non-SNI request from ip - %s", ip)
+			}
 			return &goproxy.ConnectAction{
 				Action:    goproxy.ConnectMitm,
 				TLSConfig: goproxy.TLSConfigFromCA(&cert),
 			}, "*:443"
 		}
-		log.Printf("CONNECT from ip - %s - for host %s", ip, host)
+		if proxy.Verbose {
+			log.Printf("CONNECT from ip - %s - for host %s", ip, host)
+		}
 
 		if wm.CheckTlsHost(ctx.Req.URL.String()) {
 			// don't tear down the SSL session
