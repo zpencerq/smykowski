@@ -13,7 +13,6 @@ import (
 )
 
 func SetupProxy(proxy *goproxy.ProxyHttpServer, cert tls.Certificate) {
-	proxy.Verbose = *verbose
 	if proxy.Verbose {
 		log.Printf("Server starting up! - configured to listen on http interface %s and https interface %s", *http_addr, *https_addr)
 	}

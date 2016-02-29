@@ -20,6 +20,8 @@ type WhitelistManager struct {
 	entries  []Entry
 	cache    map[string]bool
 	filename string
+
+	Verbose bool
 }
 
 func NewWhitelistManager(filename string) (*WhitelistManager, error) {

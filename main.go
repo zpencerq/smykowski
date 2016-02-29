@@ -39,6 +39,7 @@ func init() {
 	flag.Parse()
 
 	wm, err = NewWhitelistManager(*host_file)
+	wm.Verbose = *verbose
 	if err != nil {
 		panic(err)
 	}
@@ -62,6 +63,7 @@ func init() {
 	}(sigc)
 
 	proxy = goproxy.NewProxyHttpServer()
+	proxy.Verbose = *verbose
 }
 
 func main() {
