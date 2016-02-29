@@ -51,7 +51,7 @@ func init() {
 	}
 
 	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, syscall.SIGCONT)
+	signal.Notify(sigc, syscall.SIGUSR1)
 
 	go func(c chan os.Signal) {
 		for {
