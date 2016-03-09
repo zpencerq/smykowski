@@ -48,15 +48,21 @@ func SetupProxy(proxy *goproxy.ProxyHttpServer, cert tls.Certificate) {
 				TLSConfig: goproxy.TLSConfigFromCA(&cert),
 			}, "*:443"
 		}
-		if proxy.Verbose {
-			log.Printf("CONNECT from ip - %s - for host %s", ip, host)
+
+		hostaddr, _, err := net.SplitHostPort(host)
+		if err != nil { // host didn't have a port
+			hostaddr = host
 		}
 
-		if wm.CheckTlsHost(ctx.Req.URL.String()) {
+		if proxy.Verbose {
+			log.Printf("CONNECT from ip - %s - for host %s", ip, hostaddr)
+		}
+
+		if wm.CheckTlsHost(hostaddr) {
 			// don't tear down the SSL session
-			return goproxy.OkConnect, host + ":443"
+			return goproxy.OkConnect, hostaddr + ":443"
 		} else {
-			return goproxy.RejectConnect, host + ":443"
+			return goproxy.RejectConnect, hostaddr + ":443"
 		}
 	})
 }

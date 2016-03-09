@@ -107,16 +107,36 @@ func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 
 		if req.URL.Host == "" { // this is a mitm'd request
 			req.URL.Host = req.Host
+			host := req.URL.Host
+
+			if ok := wm.CheckTlsHost(host); ok {
+				if wm.Verbose {
+					log.Printf("IP %s visited - %v", ip, host)
+				}
+				return req, nil
+			}
 		}
 		host := req.URL.Host
+		hostaddr, port, err := net.SplitHostPort(host)
+		if err != nil { // host didn't have a port
+			hostaddr = host
+		}
+		if port == "443" {
+			if ok := wm.CheckTlsHost(hostaddr); ok {
+				if wm.Verbose {
+					log.Printf("IP %s visited - %v", ip, hostaddr)
+				}
+				return req, nil
+			}
+		}
 
-		if ok := wm.CheckHttpHost(host); ok {
+		if ok := wm.CheckHttpHost(hostaddr); ok {
 			if wm.Verbose {
-				log.Printf("IP %s visited - %v", ip, host)
+				log.Printf("IP %s visited - %v", ip, hostaddr)
 			}
 			return req, nil
 		}
-		log.Printf("IP %s was blocked visiting - %v", ip, host)
+		log.Printf("IP %s was blocked visiting - %v", ip, hostaddr)
 
 		buf := bytes.Buffer{}
 		buf.WriteString(fmt.Sprint("<html><body>Requested destination not in whitelist</body></html>"))

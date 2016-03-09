@@ -42,9 +42,9 @@ Usage of smykowski:
   -hostfile string
         line separated host regex whitelist (default "whitelist.lsv")
   -httpaddr string
-        proxy http listen address (default ":3129")
+        proxy and http listen address (default ":3129")
   -httpsaddr string
-        proxy https listen address (default ":3128")
+        tls listen address (default ":3128")
   -keyfile string
         CA key (default "ca.key")
   -v    should every proxy request be logged to stdout
