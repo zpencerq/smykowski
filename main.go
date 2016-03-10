@@ -31,8 +31,8 @@ var (
 
 func init() {
 	verbose = flag.Bool("v", false, "should every proxy request be logged to stdout")
-	http_addr = flag.String("httpaddr", ":3129", "proxy http listen address")
-	https_addr = flag.String("httpsaddr", ":3128", "proxy https listen address")
+	http_addr = flag.String("httpaddr", ":3128", "proxy and http listen address")
+	https_addr = flag.String("httpsaddr", ":3129", "tls listen address")
 	host_file = flag.String("hostfile", "whitelist.lsv", "line separated host regex whitelist")
 	cert_file = flag.String("certfile", "ca.crt", "CA certificate")
 	key_file = flag.String("keyfile", "ca.key", "CA key")
