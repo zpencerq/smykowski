@@ -1,8 +1,12 @@
-hash: 40de77b3df8d22dfd373c5a38af9af507baa2dd21d45ca275116e6d846f1d54d
-updated: 2016-02-21T20:40:12.501004688Z
+hash: 887b848eb3cfb4243d0d61634c8ede5c829ad60e7acdefbc1576fcedb20bfc42
+updated: 2016-04-19T23:30:11.811140038Z
 imports:
 - name: github.com/inconshreveable/go-vhost
   version: 8cbc5089df5ba3e44644d39e8d1ec375d6d842f9
+- name: github.com/quipo/statsd
+  version: 494c2067718d0c58116be15337f466e393273617
+  subpackages:
+  - event
 - name: github.com/zpencerq/goproxy
-  version: 4ccd60b5119b4472b818e6d74d965e799ca5f312
+  version: dfd9ea04faf410cfac1437e58fe1e1a27300e56f
 devImports: []

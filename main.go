@@ -16,13 +16,14 @@ import (
 )
 
 var (
-	verbose    *bool
-	http_addr  *string
-	https_addr *string
-	host_file  *string
-	cert_file  *string
-	key_file   *string
-	err        error
+	verbose     *bool
+	http_addr   *string
+	https_addr  *string
+	host_file   *string
+	cert_file   *string
+	key_file    *string
+	statsd_host *string
+	err         error
 
 	proxy *goproxy.ProxyHttpServer
 	cert  tls.Certificate
@@ -36,6 +37,7 @@ func init() {
 	host_file = flag.String("hostfile", "whitelist.lsv", "line separated host regex whitelist")
 	cert_file = flag.String("certfile", "ca.crt", "CA certificate")
 	key_file = flag.String("keyfile", "ca.key", "CA key")
+	statsd_host = flag.String("statsdhost", "localhost:8125", "StatsD host (e.g. localhost:8125)")
 	flag.Parse()
 
 	wm, err = NewWhitelistManager(*host_file)
@@ -64,6 +66,7 @@ func init() {
 
 	proxy = goproxy.NewProxyHttpServer()
 	proxy.Verbose = *verbose
+	proxy.Tracker = NewStatsdTracker(*statsd_host, "smykowski.")
 }
 
 func main() {
