@@ -66,7 +66,10 @@ func init() {
 
 	proxy = goproxy.NewProxyHttpServer()
 	proxy.Verbose = *verbose
-	proxy.Tracker = NewStatsdTracker(*statsd_host, "smykowski.")
+	proxy.Tracker = goproxy.NewCompositeTracker(
+		NewStatsdTracker(*statsd_host, "smykowski."),
+		goproxy.NewLogTracker(nil),
+	)
 }
 
 func main() {

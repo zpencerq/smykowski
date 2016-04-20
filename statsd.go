@@ -25,7 +25,12 @@ func NewStatsdTracker(host string, prefix string) *StatsdTracker {
 }
 
 func (st *StatsdTracker) Track(event *goproxy.Event) error {
-	stat := fmt.Sprintf("%s.%s", event.Event, event.Properties["Host"].(string))
+	host_string := event.Properties["Host"].(string)
+	if protocol, ok := event.Properties["Protocol"]; ok {
+		host_string = fmt.Sprintf("%s.%s", protocol, host_string)
+	}
+	stat := fmt.Sprintf("%s.%s", event.Event, host_string)
+
 	switch event.Properties["Type"] {
 	case goproxy.Duration:
 		return st.PrecisionTiming(stat, event.Properties["Value"].(time.Duration))
