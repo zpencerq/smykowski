@@ -21,6 +21,7 @@ type WhitelistManager struct {
 	cache    map[string]bool
 	filename string
 
+	Tracker Tracker
 	Verbose bool
 }
 
@@ -28,6 +29,7 @@ func NewWhitelistManager(filename string) (*WhitelistManager, error) {
 	twm := &WhitelistManager{
 		filename: filename,
 		cache:    make(map[string]bool),
+		Tracker:  NewNoopTracker(),
 	}
 	err = twm.load()
 	return twm, err
@@ -90,6 +92,11 @@ func (wm *WhitelistManager) CheckString(str string) bool {
 			return true
 		}
 	}
+
+	defer wm.Tracker.Track(NewEvent("block", map[string]interface{}{
+		"Value": str,
+		"Type":  Set,
+	}))
 
 	return false
 }

@@ -8,5 +8,5 @@ imports:
   subpackages:
   - event
 - name: github.com/zpencerq/goproxy
-  version: 8ea60905b10d2dad6b76e64f3b360937977c96a9
+  version: 4ccd60b5119b4472b818e6d74d965e799ca5f312
 devImports: []

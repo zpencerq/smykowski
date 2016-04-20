@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -10,7 +11,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/alexcesaro/statsd"
 	"github.com/inconshreveable/go-vhost"
 	"github.com/zpencerq/goproxy"
 )
@@ -25,9 +28,11 @@ var (
 	statsd_host *string
 	err         error
 
-	proxy *goproxy.ProxyHttpServer
-	cert  tls.Certificate
-	wm    *WhitelistManager
+	tracker Tracker
+	proxy   *goproxy.ProxyHttpServer
+	wrapper *ProxyHttpServerWrapper
+	cert    tls.Certificate
+	wm      *WhitelistManager
 )
 
 func init() {
@@ -40,8 +45,24 @@ func init() {
 	statsd_host = flag.String("statsdhost", "localhost:8125", "StatsD host (e.g. localhost:8125)")
 	flag.Parse()
 
+	statsd_client, err := statsd.New(
+		statsd.Address(*statsd_host),
+		statsd.Prefix("smykowski."),
+		statsd.TagsFormat(statsd.InfluxDB),
+	)
+	if nil != err {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	tracker = NewCompositeTracker(
+		NewStatsdTracker(statsd_client),
+		NewLogTracker(nil),
+	)
+
 	wm, err = NewWhitelistManager(*host_file)
 	wm.Verbose = *verbose
+	wm.Tracker = tracker
 	if err != nil {
 		panic(err)
 	}
@@ -66,17 +87,16 @@ func init() {
 
 	proxy = goproxy.NewProxyHttpServer()
 	proxy.Verbose = *verbose
-	proxy.Tracker = goproxy.NewCompositeTracker(
-		NewStatsdTracker(*statsd_host, "smykowski."),
-		goproxy.NewLogTracker(nil),
-	)
+
+	wrapper = NewProxyWrapper(proxy)
+	wrapper.Tracker = tracker
 }
 
 func main() {
 	SetupProxy(proxy, cert)
 
 	go func() {
-		log.Fatalln(http.ListenAndServe(*http_addr, proxy))
+		log.Fatalln(http.ListenAndServe(*http_addr, wrapper))
 	}()
 
 	startHttpsVhost()
@@ -101,6 +121,18 @@ func startHttpsVhost() {
 			}
 
 			host := tlsConn.Host()
+			defer func(start time.Time) {
+				tracker.Track(
+					NewDurationEvent(
+						fmt.Sprintf("serve.https.%s", host),
+						start,
+						map[string]interface{}{
+							"Host":     host,
+							"Protocol": "https",
+						}),
+				)
+			}(time.Now())
+
 			if !wm.CheckTlsHost(host) && host != "" { // don't filter non-SNI clients here
 				log.Printf("Denied %v before CONNECT", tlsConn.Host())
 				c.Close()

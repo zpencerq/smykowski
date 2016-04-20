@@ -24,7 +24,7 @@ func SetupProxy(proxy *goproxy.ProxyHttpServer, cert tls.Certificate) {
 		}
 		req.URL.Scheme = "http"
 		req.URL.Host = req.Host
-		proxy.ServeHTTPInternal(w, req)
+		proxy.ServeHTTP(w, req)
 	})
 
 	proxy.OnRequest().DoFunc(wm.ReqHandler())
