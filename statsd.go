@@ -44,7 +44,7 @@ func (st *StatsdTracker) Track(event *Event) error {
 
 	switch event.Properties["Type"] {
 	case Timer:
-		st.Timing(event.Event, event.Properties["Value"].(time.Duration))
+		st.Timing(event.Event, int(event.Properties["Value"].(time.Duration)/time.Millisecond))
 	case Counter:
 		st.Count(event.Event, event.Properties["Value"].(int64))
 	case Gauge:
