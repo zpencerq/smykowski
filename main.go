@@ -55,10 +55,7 @@ func init() {
 		os.Exit(1)
 	}
 
-	tracker = NewCompositeTracker(
-		NewStatsdTracker(statsd_client),
-		NewLogTracker(nil),
-	)
+	tracker = NewStatsdTracker(statsd_client)
 
 	wm, err = NewWhitelistManager(*host_file)
 	wm.Verbose = *verbose

@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -105,10 +106,24 @@ func NewCompositeTracker(trackers ...Tracker) *CompositeTracker {
 	return composite_tracker
 }
 
+type CompositeError []error
+
+func (ce *CompositeError) Error() string {
+	error_strings := make([]string, len(*ce))
+	for _, err := range *ce {
+		error_strings = append(error_strings, err.Error())
+	}
+	return strings.Join(error_strings[:], "\n")
+}
+
 func (st *CompositeTracker) Track(event *Event) error {
-	var err error
+	errors := make([]error, 0)
+	errs := CompositeError(errors)
 	for _, tracker := range st.trackers {
 		err = tracker.Track(event)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
-	return err
+	return &errs
 }
