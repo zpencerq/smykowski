@@ -52,7 +52,6 @@ func init() {
 	)
 	if nil != err {
 		log.Println(err)
-		os.Exit(1)
 	}
 
 	tracker = NewStatsdTracker(statsd_client)
