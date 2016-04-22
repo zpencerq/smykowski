@@ -45,7 +45,7 @@ func init() {
 	statsd_host = flag.String("statsdhost", "localhost:8125", "StatsD host (e.g. localhost:8125)")
 	flag.Parse()
 
-	statsd_client, err := statsd.New(
+	statsd_client, err := NewStatsdClient(
 		statsd.Address(*statsd_host),
 		statsd.Prefix("smykowski."),
 		statsd.TagsFormat(statsd.InfluxDB),
