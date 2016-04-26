@@ -43,10 +43,7 @@ func SetupProxy(proxy *goproxy.ProxyHttpServer, cert tls.Certificate) {
 			if proxy.Verbose {
 				log.Printf("non-SNI request from ip - %s", ip)
 			}
-			return &goproxy.ConnectAction{
-				Action:    goproxy.ConnectMitm,
-				TLSConfig: goproxy.TLSConfigFromCA(&cert),
-			}, "*:443"
+			return goproxy.MitmConnect, "*:443"
 		}
 
 		hostaddr, _, err := net.SplitHostPort(host)

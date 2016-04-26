@@ -1,8 +1,18 @@
-hash: 40de77b3df8d22dfd373c5a38af9af507baa2dd21d45ca275116e6d846f1d54d
-updated: 2016-02-21T20:40:12.501004688Z
+hash: e90b53e7bf283815e8ae78fd99868e7324382a4d41e4c6dbd85f47d9535ca823
+updated: 2016-04-25T18:23:05.538137597Z
 imports:
+- name: github.com/alexcesaro/statsd
+  version: 7fea3f0d2fab1ad973e641e51dba45443a311a90
 - name: github.com/inconshreveable/go-vhost
   version: 8cbc5089df5ba3e44644d39e8d1ec375d6d842f9
+- name: github.com/influxdata/influxdb
+  version: f608e4cdb0482102471004b44fd7b7f18509d14b
+  subpackages:
+  - client/v2
+  - models
+  - pkg/escape
+- name: github.com/quipo/statsd
+  version: 494c2067718d0c58116be15337f466e393273617
 - name: github.com/zpencerq/goproxy
   version: 4ccd60b5119b4472b818e6d74d965e799ca5f312
 devImports: []

@@ -21,6 +21,7 @@ type WhitelistManager struct {
 	cache    map[string]bool
 	filename string
 
+	Tracker Tracker
 	Verbose bool
 }
 
@@ -28,6 +29,7 @@ func NewWhitelistManager(filename string) (*WhitelistManager, error) {
 	twm := &WhitelistManager{
 		filename: filename,
 		cache:    make(map[string]bool),
+		Tracker:  NewNoopTracker(),
 	}
 	err = twm.load()
 	return twm, err
@@ -76,20 +78,48 @@ func (wm *WhitelistManager) CheckTlsHost(host string) bool {
 	return wm.CheckString("https://" + host)
 }
 
+func (wm *WhitelistManager) trackAllow(str string) error {
+	return wm.Tracker.Track(NewEvent(
+		"smykowski.allow",
+		map[string]interface{}{
+			"Value": 1,
+			"Type":  Counter,
+			"Tags": map[string]string{
+				"Value": str,
+			},
+		}))
+}
+
+func (wm *WhitelistManager) trackBlock(str string) error {
+	return wm.Tracker.Track(NewEvent(
+		"smykowski.block",
+		map[string]interface{}{
+			"Value": 1,
+			"Type":  Counter,
+			"Tags": map[string]string{
+				"Value": str,
+			},
+		}))
+}
+
 func (wm *WhitelistManager) CheckString(str string) bool {
 	wm.RLock()
 	defer wm.RUnlock()
 
 	if _, present := wm.cache[str]; present {
+		defer wm.trackAllow(str)
 		return true
 	}
 
 	for _, entry := range wm.entries {
 		if entry.MatchesString(str) {
 			wm.cache[str] = true
+			defer wm.trackAllow(str)
 			return true
 		}
 	}
+
+	defer wm.trackBlock(str)
 
 	return false
 }

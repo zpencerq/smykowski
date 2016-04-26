@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/inconshreveable/go-vhost"
 	"github.com/zpencerq/goproxy"
@@ -22,11 +23,14 @@ var (
 	host_file  *string
 	cert_file  *string
 	key_file   *string
+	influxHost *string
 	err        error
 
-	proxy *goproxy.ProxyHttpServer
-	cert  tls.Certificate
-	wm    *WhitelistManager
+	tracker Tracker
+	proxy   *goproxy.ProxyHttpServer
+	wrapper *ProxyHttpServerWrapper
+	cert    tls.Certificate
+	wm      *WhitelistManager
 )
 
 func init() {
@@ -36,10 +40,28 @@ func init() {
 	host_file = flag.String("hostfile", "whitelist.lsv", "line separated host regex whitelist")
 	cert_file = flag.String("certfile", "ca.crt", "CA certificate")
 	key_file = flag.String("keyfile", "ca.key", "CA key")
+	influxHost = flag.String("influxhost", "localhost:8089", "InfluxDB host (e.g. localhost:8125)")
 	flag.Parse()
+
+	influxClient, err := NewInfluxDataClient(
+		InfluxConfig{
+			Addr: *influxHost,
+		},
+	)
+
+	tracker = NewCompositeTracker(
+		NewInfluxDataTracker(influxClient),
+	)
+
+	if *verbose {
+		tracker.(*CompositeTracker).AddTracker(
+			NewLogTracker(nil),
+		)
+	}
 
 	wm, err = NewWhitelistManager(*host_file)
 	wm.Verbose = *verbose
+	wm.Tracker = tracker
 	if err != nil {
 		panic(err)
 	}
@@ -64,13 +86,16 @@ func init() {
 
 	proxy = goproxy.NewProxyHttpServer()
 	proxy.Verbose = *verbose
+
+	wrapper = NewProxyWrapper(proxy)
+	wrapper.Tracker = tracker
 }
 
 func main() {
 	SetupProxy(proxy, cert)
 
 	go func() {
-		log.Fatalln(http.ListenAndServe(*http_addr, proxy))
+		log.Fatalln(http.ListenAndServe(*http_addr, wrapper))
 	}()
 
 	startHttpsVhost()
@@ -95,6 +120,20 @@ func startHttpsVhost() {
 			}
 
 			host := tlsConn.Host()
+			defer func(start time.Time) {
+				tracker.Track(
+					NewDurationEvent(
+						"smykowski.serve",
+						start,
+						map[string]interface{}{
+							"Tags": map[string]string{
+								"Host":     host,
+								"Protocol": "https",
+							},
+						}),
+				)
+			}(time.Now())
+
 			if !wm.CheckTlsHost(host) && host != "" { // don't filter non-SNI clients here
 				log.Printf("Denied %v before CONNECT", tlsConn.Host())
 				c.Close()
