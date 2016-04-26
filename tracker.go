@@ -106,6 +106,10 @@ func NewCompositeTracker(trackers ...Tracker) *CompositeTracker {
 	return composite_tracker
 }
 
+func (ct *CompositeTracker) AddTracker(tracker Tracker) {
+	ct.trackers = append(ct.trackers, tracker)
+}
+
 type CompositeError []error
 
 func (ce *CompositeError) Error() string {

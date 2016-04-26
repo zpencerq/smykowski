@@ -51,8 +51,13 @@ func init() {
 
 	tracker = NewCompositeTracker(
 		NewInfluxDataTracker(influxClient),
-		NewLogTracker(nil),
 	)
+
+	if *verbose {
+		tracker.(*CompositeTracker).AddTracker(
+			NewLogTracker(nil),
+		)
+	}
 
 	wm, err = NewWhitelistManager(*host_file)
 	wm.Verbose = *verbose
