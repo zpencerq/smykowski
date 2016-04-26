@@ -12,20 +12,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alexcesaro/statsd"
 	"github.com/inconshreveable/go-vhost"
 	"github.com/zpencerq/goproxy"
 )
 
 var (
-	verbose     *bool
-	http_addr   *string
-	https_addr  *string
-	host_file   *string
-	cert_file   *string
-	key_file    *string
-	statsd_host *string
-	err         error
+	verbose    *bool
+	http_addr  *string
+	https_addr *string
+	host_file  *string
+	cert_file  *string
+	key_file   *string
+	influxHost *string
+	err        error
 
 	tracker Tracker
 	proxy   *goproxy.ProxyHttpServer
@@ -41,19 +40,19 @@ func init() {
 	host_file = flag.String("hostfile", "whitelist.lsv", "line separated host regex whitelist")
 	cert_file = flag.String("certfile", "ca.crt", "CA certificate")
 	key_file = flag.String("keyfile", "ca.key", "CA key")
-	statsd_host = flag.String("statsdhost", "localhost:8125", "StatsD host (e.g. localhost:8125)")
+	influxHost = flag.String("influxhost", "localhost:8089", "InfluxDB host (e.g. localhost:8125)")
 	flag.Parse()
 
-	statsd_client, err := NewStatsdClient(
-		statsd.Address(*statsd_host),
-		statsd.Prefix("smykowski."),
-		statsd.TagsFormat(statsd.InfluxDB),
+	influxClient, err := NewInfluxDataClient(
+		InfluxConfig{
+			Addr: *influxHost,
+		},
 	)
-	if nil != err {
-		log.Println(err)
-	}
 
-	tracker = NewStatsdTracker(statsd_client)
+	tracker = NewCompositeTracker(
+		NewInfluxDataTracker(influxClient),
+		NewLogTracker(nil),
+	)
 
 	wm, err = NewWhitelistManager(*host_file)
 	wm.Verbose = *verbose

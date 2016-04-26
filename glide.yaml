@@ -3,3 +3,4 @@ import:
   - package: github.com/zpencerq/goproxy
   - package: github.com/inconshreveable/go-vhost
   - package: github.com/quipo/statsd
+  - package: github.com/influxdata/influxdb/client/v2
