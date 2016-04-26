@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -120,11 +119,13 @@ func startHttpsVhost() {
 			defer func(start time.Time) {
 				tracker.Track(
 					NewDurationEvent(
-						fmt.Sprintf("serve.https.%s", host),
+						"smykowski.serve",
 						start,
 						map[string]interface{}{
-							"Host":     host,
-							"Protocol": "https",
+							"Tags": map[string]string{
+								"Host":     host,
+								"Protocol": "https",
+							},
 						}),
 				)
 			}(time.Now())

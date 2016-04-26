@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -35,11 +34,13 @@ func (wrapper *ProxyHttpServerWrapper) ServeHTTP(w http.ResponseWriter, r *http.
 	}
 
 	defer wrapper.TrackDuration(
-		NewEvent(fmt.Sprintf("serve.%s.%s", protocol, host),
+		NewEvent("smykowski.serve",
 			map[string]interface{}{
-				"Host":     host,
-				"Url":      r.URL.Path,
-				"Protocol": protocol,
+				"Tags": map[string]string{
+					"Host":     host,
+					"Protocol": protocol,
+				},
+				"Url": r.URL.Path,
 			}),
 		time.Now())
 
