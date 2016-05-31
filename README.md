@@ -59,7 +59,7 @@ https://(www\.)?yahoo\.com/$
 
 #### Reloading whitelist
 You can reload the whitelist from disk by sending a
-`SIGCONT` signal to the process.
+`SIGUSR1` signal to the process.
 ```
 kill -s SIGUSR1 smykowski
 ```
