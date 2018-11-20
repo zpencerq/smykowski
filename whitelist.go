@@ -181,8 +181,8 @@ func (wm *WhitelistManager) CheckString(str string) bool {
 	return false
 }
 
-func BadRequestResponse(ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-	return nil, &http.Response{
+func BadRequestResponse(ctx *goproxy.ProxyCtx) *http.Response {
+	return &http.Response{
 		StatusCode: 400,
 		ProtoMajor: 1,
 		ProtoMinor: 1,
@@ -192,34 +192,52 @@ func BadRequestResponse(ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 }
 
 func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
-	return func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-		ip, _, err := net.SplitHostPort(req.RemoteAddr)
+	return func(r *http.Request, ctx *goproxy.ProxyCtx) (req *http.Request, resp *http.Response) {
+		resp = nil
+
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Printf("Recovered from panic: %v", rec)
+				resp = &http.Response{
+					StatusCode: 500,
+					ProtoMajor: 1,
+					ProtoMinor: 1,
+					Request:    ctx.Req,
+					Header:     http.Header{"Cache-Control": []string{"no-cache"}},
+				}
+			}
+		}()
+
+		ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
-			log.Printf("userip: %q is not IP:port", req.RemoteAddr)
-			return BadRequestResponse(ctx)
+			log.Printf("userip: %q is not IP:port", r.RemoteAddr)
+			resp = BadRequestResponse(ctx)
+			return
 		}
 		userIP := net.ParseIP(ip)
 		if userIP == nil {
 			log.Printf("userip: %q is not IP", ip)
-			return BadRequestResponse(ctx)
+			resp = BadRequestResponse(ctx)
+			return
 		}
-		if req.URL == nil {
+		if r.URL == nil {
 			log.Printf("Bad Request: URL is nil (from %q)", userIP)
-			return BadRequestResponse(ctx)
+			resp = BadRequestResponse(ctx)
+			return
 		}
 
-		if req.URL.Host == "" { // this is a mitm'd request
-			req.URL.Host = req.Host
-			host := req.URL.Host
+		if r.URL.Host == "" { // this is a mitm'd request
+			r.URL.Host = r.Host
+			host := r.URL.Host
 
 			if ok := wm.CheckTlsHost(host); ok {
 				if wm.Verbose {
 					log.Printf("IP %s visited - %v", ip, host)
 				}
-				return req, nil
+				return
 			}
 		}
-		host := req.URL.Host
+		host := r.URL.Host
 		hostaddr, port, err := net.SplitHostPort(host)
 		if err != nil { // host didn't have a port
 			hostaddr = host
@@ -229,7 +247,7 @@ func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 				if wm.Verbose {
 					log.Printf("IP %s visited - %v", ip, hostaddr)
 				}
-				return req, nil
+				return
 			}
 		}
 
@@ -237,14 +255,14 @@ func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 			if wm.Verbose {
 				log.Printf("IP %s visited - %v", ip, hostaddr)
 			}
-			return req, nil
+			return
 		}
 		log.Printf("IP %s was blocked visiting - %v", ip, hostaddr)
 
 		buf := bytes.Buffer{}
 		buf.WriteString(fmt.Sprint("<html><body>Requested destination not in whitelist</body></html>"))
 
-		return nil, &http.Response{
+		resp = &http.Response{
 			StatusCode:    403,
 			ProtoMajor:    1,
 			ProtoMinor:    1,
@@ -253,6 +271,8 @@ func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 			Body:          ioutil.NopCloser(&buf),
 			ContentLength: int64(buf.Len()),
 		}
+
+		return
 	}
 }
 
