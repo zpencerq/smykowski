@@ -59,7 +59,12 @@ func init() {
 		)
 	}
 
-	wm, err = NewWhitelistManager(*host_file)
+	loader, err := NewFileWhitelistLoader(*host_file)
+	if err != nil {
+		panic(err)
+	}
+
+	wm, err = NewWhitelistManager(loader)
 	wm.Verbose = *verbose
 	wm.Tracker = tracker
 	if err != nil {

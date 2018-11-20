@@ -74,19 +74,19 @@ func (fws *FileWhitelistLoader) Load(adder func(entry Entry)) error {
 
 type WhitelistManager struct {
 	sync.RWMutex
-	entries  []Entry
-	cache    map[string]bool
-	filename string
+	entries []Entry
+	cache   map[string]bool
+	loader  WhitelistLoader
 
 	Tracker Tracker
 	Verbose bool
 }
 
-func NewWhitelistManager(filename string) (*WhitelistManager, error) {
+func NewWhitelistManager(loader WhitelistLoader) (*WhitelistManager, error) {
 	twm := &WhitelistManager{
-		filename: filename,
-		cache:    make(map[string]bool),
-		Tracker:  NewNoopTracker(),
+		loader:  loader,
+		cache:   make(map[string]bool),
+		Tracker: NewNoopTracker(),
 	}
 	err = twm.load()
 	return twm, err
@@ -241,26 +241,7 @@ func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 }
 
 func (wm *WhitelistManager) load() error {
-	tmp, err := os.Open(wm.filename)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		err := tmp.Close()
-		if err != nil {
-			log.Printf("Error closing file - %v", err)
-		}
-	}()
-
-	scanner := bufio.NewScanner(tmp)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		wm.add(NewEntry(scanner.Text()))
-		log.Printf("Added: %v", scanner.Text())
-	}
-
-	return nil
+	return wm.loader.Load(wm.add)
 }
 
 func (wm *WhitelistManager) add(entry Entry) {
