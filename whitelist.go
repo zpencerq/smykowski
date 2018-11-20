@@ -181,15 +181,31 @@ func (wm *WhitelistManager) CheckString(str string) bool {
 	return false
 }
 
+func BadRequestResponse(ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+	return nil, &http.Response{
+		StatusCode: 400,
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Request:    ctx.Req,
+		Header:     http.Header{"Cache-Control": []string{"no-cache"}},
+	}
+}
+
 func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 	return func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 		ip, _, err := net.SplitHostPort(req.RemoteAddr)
 		if err != nil {
-			panic(fmt.Sprintf("userip: %q is not IP:port", req.RemoteAddr))
+			log.Printf("userip: %q is not IP:port", req.RemoteAddr)
+			return BadRequestResponse(ctx)
 		}
 		userIP := net.ParseIP(ip)
 		if userIP == nil {
-			panic(fmt.Sprintf("userip: %q is not IP", ip))
+			log.Printf("userip: %q is not IP", ip)
+			return BadRequestResponse(ctx)
+		}
+		if req.URL == nil {
+			log.Printf("Bad Request: URL is nil (from %q)", userIP)
+			return BadRequestResponse(ctx)
 		}
 
 		if req.URL.Host == "" { // this is a mitm'd request
