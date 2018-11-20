@@ -15,21 +15,78 @@ import (
 	"github.com/zpencerq/goproxy"
 )
 
+type WhitelistLoader interface {
+	Load(adder func(entry Entry)) error
+}
+
+type MemoryWhitelistLoader struct {
+	entries []Entry
+}
+
+func NewMemoryWhitelistLoader(entries []Entry) *MemoryWhitelistLoader {
+	return &MemoryWhitelistLoader{entries}
+}
+
+func (mws *MemoryWhitelistLoader) Load(adder func(entry Entry)) error {
+	for _, entry := range mws.entries {
+		adder(entry)
+	}
+
+	return nil
+}
+
+type FileWhitelistLoader struct {
+	filename string
+}
+
+func NewFileWhitelistLoader(filename string) (*FileWhitelistLoader, error) {
+	fws := &FileWhitelistLoader{filename: filename}
+
+	if err := fws.Load(func(entry Entry) {}); err != nil {
+		return nil, err
+	}
+
+	return fws, nil
+}
+
+func (fws *FileWhitelistLoader) Load(adder func(entry Entry)) error {
+	tmp, err := os.Open(fws.filename)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err := tmp.Close()
+		if err != nil {
+			log.Printf("Error closing file - %v", err)
+		}
+	}()
+
+	scanner := bufio.NewScanner(tmp)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		adder(NewEntry(scanner.Text()))
+		log.Printf("Added: %v", scanner.Text())
+	}
+
+	return nil
+}
+
 type WhitelistManager struct {
 	sync.RWMutex
-	entries  []Entry
-	cache    map[string]bool
-	filename string
+	entries []Entry
+	cache   map[string]bool
+	loader  WhitelistLoader
 
 	Tracker Tracker
 	Verbose bool
 }
 
-func NewWhitelistManager(filename string) (*WhitelistManager, error) {
+func NewWhitelistManager(loader WhitelistLoader) (*WhitelistManager, error) {
 	twm := &WhitelistManager{
-		filename: filename,
-		cache:    make(map[string]bool),
-		Tracker:  NewNoopTracker(),
+		loader:  loader,
+		cache:   make(map[string]bool),
+		Tracker: NewNoopTracker(),
 	}
 	err = twm.load()
 	return twm, err
@@ -124,29 +181,63 @@ func (wm *WhitelistManager) CheckString(str string) bool {
 	return false
 }
 
+func BadRequestResponse(ctx *goproxy.ProxyCtx) *http.Response {
+	return &http.Response{
+		StatusCode: 400,
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Request:    ctx.Req,
+		Header:     http.Header{"Cache-Control": []string{"no-cache"}},
+	}
+}
+
 func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
-	return func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-		ip, _, err := net.SplitHostPort(req.RemoteAddr)
+	return func(r *http.Request, ctx *goproxy.ProxyCtx) (req *http.Request, resp *http.Response) {
+		resp = nil
+
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Printf("Recovered from panic: %v", rec)
+				resp = &http.Response{
+					StatusCode: 500,
+					ProtoMajor: 1,
+					ProtoMinor: 1,
+					Request:    ctx.Req,
+					Header:     http.Header{"Cache-Control": []string{"no-cache"}},
+				}
+			}
+		}()
+
+		ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
-			panic(fmt.Sprintf("userip: %q is not IP:port", req.RemoteAddr))
+			log.Printf("userip: %q is not IP:port", r.RemoteAddr)
+			resp = BadRequestResponse(ctx)
+			return
 		}
 		userIP := net.ParseIP(ip)
 		if userIP == nil {
-			panic(fmt.Sprintf("userip: %q is not IP", ip))
+			log.Printf("userip: %q is not IP", ip)
+			resp = BadRequestResponse(ctx)
+			return
+		}
+		if r.URL == nil {
+			log.Printf("Bad Request: URL is nil (from %q)", userIP)
+			resp = BadRequestResponse(ctx)
+			return
 		}
 
-		if req.URL.Host == "" { // this is a mitm'd request
-			req.URL.Host = req.Host
-			host := req.URL.Host
+		if r.URL.Host == "" { // this is a mitm'd request
+			r.URL.Host = r.Host
+			host := r.URL.Host
 
 			if ok := wm.CheckTlsHost(host); ok {
 				if wm.Verbose {
 					log.Printf("IP %s visited - %v", ip, host)
 				}
-				return req, nil
+				return
 			}
 		}
-		host := req.URL.Host
+		host := r.URL.Host
 		hostaddr, port, err := net.SplitHostPort(host)
 		if err != nil { // host didn't have a port
 			hostaddr = host
@@ -156,7 +247,7 @@ func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 				if wm.Verbose {
 					log.Printf("IP %s visited - %v", ip, hostaddr)
 				}
-				return req, nil
+				return
 			}
 		}
 
@@ -164,14 +255,14 @@ func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 			if wm.Verbose {
 				log.Printf("IP %s visited - %v", ip, hostaddr)
 			}
-			return req, nil
+			return
 		}
 		log.Printf("IP %s was blocked visiting - %v", ip, hostaddr)
 
 		buf := bytes.Buffer{}
 		buf.WriteString(fmt.Sprint("<html><body>Requested destination not in whitelist</body></html>"))
 
-		return nil, &http.Response{
+		resp = &http.Response{
 			StatusCode:    403,
 			ProtoMajor:    1,
 			ProtoMinor:    1,
@@ -180,30 +271,13 @@ func (wm *WhitelistManager) ReqHandler() goproxy.FuncReqHandler {
 			Body:          ioutil.NopCloser(&buf),
 			ContentLength: int64(buf.Len()),
 		}
+
+		return
 	}
 }
 
 func (wm *WhitelistManager) load() error {
-	tmp, err := os.Open(wm.filename)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		err := tmp.Close()
-		if err != nil {
-			log.Printf("Error closing file - %v", err)
-		}
-	}()
-
-	scanner := bufio.NewScanner(tmp)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		wm.add(NewEntry(scanner.Text()))
-		log.Printf("Added: %v", scanner.Text())
-	}
-
-	return nil
+	return wm.loader.Load(wm.add)
 }
 
 func (wm *WhitelistManager) add(entry Entry) {

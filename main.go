@@ -33,7 +33,7 @@ var (
 	wm      *WhitelistManager
 )
 
-func init() {
+func handleFlags() {
 	verbose = flag.Bool("v", false, "should every proxy request be logged to stdout")
 	http_addr = flag.String("httpaddr", ":3128", "proxy and http listen address")
 	https_addr = flag.String("httpsaddr", ":3129", "tls listen address")
@@ -59,7 +59,12 @@ func init() {
 		)
 	}
 
-	wm, err = NewWhitelistManager(*host_file)
+	loader, err := NewFileWhitelistLoader(*host_file)
+	if err != nil {
+		panic(err)
+	}
+
+	wm, err = NewWhitelistManager(loader)
 	wm.Verbose = *verbose
 	wm.Tracker = tracker
 	if err != nil {
@@ -92,6 +97,8 @@ func init() {
 }
 
 func main() {
+	handleFlags()
+
 	SetupProxy(proxy, cert)
 
 	go func() {
