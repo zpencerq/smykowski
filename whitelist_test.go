@@ -41,7 +41,14 @@ func TestReqHandler(t *testing.T) {
 	r := DummyReq(t)
 	r.URL = nil
 
-	run := func() { wm.ReqHandler()(HandlerInput(r)) }
+	handler := wm.ReqHandler()
+
+	run := func() { handler(HandlerInput(r)) }
 
 	AssertDidNotPanic(t, "ReqHandler with nil URL", run)
+
+	_, resp := handler(HandlerInput(r))
+	if resp.StatusCode != 400 {
+		t.Errorf("nil URL response is not 400: %d", resp.StatusCode)
+	}
 }
