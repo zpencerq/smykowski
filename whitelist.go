@@ -15,6 +15,63 @@ import (
 	"github.com/zpencerq/goproxy"
 )
 
+type WhitelistLoader interface {
+	Load(adder func(entry Entry)) error
+}
+
+type MemoryWhitelistLoader struct {
+	entries []Entry
+}
+
+func NewMemoryWhitelistLoader(entries []Entry) *MemoryWhitelistLoader {
+	return &MemoryWhitelistLoader{entries}
+}
+
+func (mws *MemoryWhitelistLoader) Load(adder func(entry Entry)) error {
+	for _, entry := range mws.entries {
+		adder(entry)
+	}
+
+	return nil
+}
+
+type FileWhitelistLoader struct {
+	filename string
+}
+
+func NewFileWhitelistLoader(filename string) (*FileWhitelistLoader, error) {
+	fws := &FileWhitelistLoader{filename: filename}
+
+	if err := fws.Load(func(entry Entry) {}); err != nil {
+		return nil, err
+	}
+
+	return fws, nil
+}
+
+func (fws *FileWhitelistLoader) Load(adder func(entry Entry)) error {
+	tmp, err := os.Open(fws.filename)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err := tmp.Close()
+		if err != nil {
+			log.Printf("Error closing file - %v", err)
+		}
+	}()
+
+	scanner := bufio.NewScanner(tmp)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		adder(NewEntry(scanner.Text()))
+		log.Printf("Added: %v", scanner.Text())
+	}
+
+	return nil
+}
+
 type WhitelistManager struct {
 	sync.RWMutex
 	entries  []Entry
